@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "report-this",
+    "slug": "impl-expo-report-this",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.example.implexporeportthis"
+    },
+    "android": {
+      "package": "org.example.implexporeportthis",
+      "adaptiveIcon": {
+        "backgroundColor": "#0e1116",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
