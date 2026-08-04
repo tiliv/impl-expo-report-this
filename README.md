@@ -140,3 +140,57 @@ See [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
   a moderation action, not a reporting one.
 - The transport is simulated with a 700ms timer. Real backoff scheduling — a
   timer that survives app restart and fires the queued retry — is not modelled.
+
+---
+
+## The wire boundary: there is nowhere to send a report
+
+`src/core/envelope.ts` (byte-identical across the `impl-expo-*` repos) and
+`src/core/packing.ts` connect this experiment to what the Noodles API actually
+offers. The finding is what it does *not* offer.
+
+`noodles-model/openapi/paths/` has **no report, moderation or abuse route**.
+`messaging-lambda/src/main.rs` has no such handler. Reporting is not
+unimplemented-but-designed — it is absent from the contract entirely. (This repo's
+own `ReportDestination` union already lists `'homeserver'`; that is the option that
+does not exist.)
+
+That leaves three channels, two of them wrong:
+
+| Channel | Verdict |
+| --- | --- |
+| A room event | Wrong — everyone in the room can read it, including the person being reported |
+| A new endpoint | Doesn't exist; needs spec, lambda, storage and a moderator surface |
+| **Olm to-device to a moderator's devices** | Available today. What `packReport` produces |
+
+`ToDeviceEventType` restricts client-originated to-device events to
+`m.room.encrypted` — exactly the Olm envelope — and `keys/query` has no contact
+requirement, so a client can fetch a moderator's device keys without being their
+contact. Olm is per-device, so one report to a moderator with three devices is
+three ciphertexts, and `isDeliverable()` is false when they have none.
+
+### The part that is not a packaging problem
+
+E2EE means the server cannot read the reported content, so a report that is only a
+*pointer* is unactionable — the moderator would need to have been in the room,
+holding the room key, before the report arrived. **Moderating E2EE content requires
+the reporter to hand over a copy encrypted to the moderator.**
+
+That is a deliberate hole in the confidentiality guarantee, opened by the person
+who was harmed. It cannot be closed by writing this code more carefully. What the
+code can do is refuse to claim more than it delivers:
+
+- `reportability()` — asked by the *reporter*, before sending. Returns every reason
+  a report would arrive with nothing to look at: `subject_revoked`,
+  `subject_expired`, `no_evidence_permitted`, `subject_may_be_view_once`.
+- `canModeratorAct()` — asked on the *receiving* side. These two can disagree, and
+  the disagreement is the interesting part: a report that was actionable when filed
+  arrives without evidence if the room's policy changed in between.
+
+**Anonymity is from the moderator, not from the server.** The Olm session
+identifies the sending device whatever the content omits. Omitting the reporter
+field is the honest maximum, and the UI must not promise more.
+
+**Evidence is enumerated field by field, never spread.** It is the one type here
+whose contents leave the device; a spread means the next field someone adds starts
+being transmitted without anyone deciding it should.
