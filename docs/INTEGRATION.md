@@ -94,3 +94,30 @@ Decide deliberately, because this is where the privacy cost lands:
    evidence is exactly the payload you would not want readable by the room.
 4. **Reporting a user rather than a message.** The model is envelope-shaped
    throughout; user-level reports are a different subject type, not a flag.
+
+---
+
+## The wire, added later
+
+`core/envelope.ts` + `core/packing.ts` now pack a report for the only channel that
+will carry one. Findings:
+
+1. **There is no report endpoint.** Not in the OpenAPI spec, not in
+   `messaging-lambda`. Anything built here either adds one or rides Olm to-device.
+   This is the finding; everything else follows from it.
+2. **Moderating E2EE content requires handing over a copy.** A pointer is
+   unactionable because the moderator holds no room key. The evidence copy is
+   therefore load-bearing *and* a real privacy cost — not an implementation detail
+   to be optimised away.
+3. **Reporter-side and moderator-side actionability are different questions** and
+   can disagree. Both are implemented; the gap between them is what to surface.
+4. **Anonymity stops at the transport.** Olm identifies the device. Do not let the
+   UI imply otherwise.
+5. **Olm is per-device**, so delivery is a fan-out with a device count, and a
+   moderator who has just reinstalled may have no device the reporter knows about.
+6. **`viewOnce` media may already be spent.** Only the server knows; locally this
+   is `subject_may_be_view_once`, an unknown rather than a failure.
+
+Still open: whether reporting should get a real endpoint. That is a product and
+trust-model question, not a packaging one — but the answer determines whether any
+of the above survives.
